@@ -4,6 +4,8 @@ hcpms_user :-
 sqlplus hcpms_user@localhost:1521/XEPDB1
 321
 
+admin@4444  (salted PBKDF2 hashes )
+
 
 @"C:\Users\gopis\Desktop\Projects\Hospital_Clinic_Patient_Management_System\database\doctors.sql"
 SELECT table_name
@@ -36,3 +38,7 @@ COLUMN SPECIALIZATION FORMAT A28
 COLUMN PHONE FORMAT A15
 COLUMN CONSULTATION_FEE FORMAT 999,999,999.99
 COLUMN CREATED_AT FORMAT A30
+
+
+
+2026-10-18 10:00:00

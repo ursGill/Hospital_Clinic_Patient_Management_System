@@ -1,4 +1,3 @@
-
 package com.hcpms;
 
 import java.sql.*;
@@ -52,8 +51,7 @@ public class DoctorManager {
         return doctors;
     }
 
-    public List<Doctor> searchDoctors(String query)
-            throws SQLException {
+    public List<Doctor> searchDoctors(String query) throws SQLException {
         if (query == null || query.isBlank()) {
             return getAllDoctors();
         }
@@ -82,11 +80,9 @@ public class DoctorManager {
         return doctors;
     }
 
-    public boolean updateDoctor(Doctor doctor)
-            throws SQLException {
+    public boolean updateDoctor(Doctor doctor) throws SQLException {
         if (doctor.getDoctorId() <= 0) {
-            throw new IllegalArgumentException(
-                "Select a doctor before updating.");
+            throw new IllegalArgumentException("Select a doctor before updating.");
         }
 
         validate(doctor);
@@ -100,47 +96,48 @@ public class DoctorManager {
 
             bindDoctor(ps, doctor);
             ps.setInt(5, doctor.getDoctorId());
+            return ps.executeUpdate() == 1;
+        }
+    }
 
+    /**
+     * Deletes a doctor only when the database allows it.
+     * If appointments reference this doctor, Oracle's foreign-key constraint
+     * rejects the delete and the caller can explain that to the user.
+     */
+    public boolean deleteDoctor(int doctorId) throws SQLException {
+        if (doctorId <= 0) {
+            throw new IllegalArgumentException("Select a doctor before deleting.");
+        }
+
+        String sql = "DELETE FROM doctors WHERE doctor_id = ?";
+        try (Connection con = database.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, doctorId);
             return ps.executeUpdate() == 1;
         }
     }
 
     private void validate(Doctor d) {
-        if (d == null ||
-            d.getFullName() == null ||
-            d.getFullName().isBlank()) {
-            throw new IllegalArgumentException(
-                "Doctor name is required.");
+        if (d == null || d.getFullName() == null || d.getFullName().isBlank()) {
+            throw new IllegalArgumentException("Doctor name is required.");
         }
-
         if (d.getFullName().trim().length() > 100) {
-            throw new IllegalArgumentException(
-                "Name must be at most 100 characters.");
+            throw new IllegalArgumentException("Name must be at most 100 characters.");
         }
-
-        if (d.getSpecialization() == null ||
-            d.getSpecialization().isBlank()) {
-            throw new IllegalArgumentException(
-                "Specialization is required.");
+        if (d.getSpecialization() == null || d.getSpecialization().isBlank()) {
+            throw new IllegalArgumentException("Specialization is required.");
         }
-
         if (d.getSpecialization().trim().length() > 80) {
-            throw new IllegalArgumentException(
-                "Specialization must be at most 80 characters.");
+            throw new IllegalArgumentException("Specialization must be at most 80 characters.");
         }
 
-        String phone = d.getPhone() == null
-            ? "" : d.getPhone().trim();
-
+        String phone = d.getPhone() == null ? "" : d.getPhone().trim();
         if (!phone.matches("[0-9]{10,15}")) {
-            throw new IllegalArgumentException(
-                "Phone must contain 10 to 15 digits.");
+            throw new IllegalArgumentException("Phone must contain 10 to 15 digits.");
         }
-
-        if (!Double.isFinite(d.getConsultationFee()) ||
-            d.getConsultationFee() < 0) {
-            throw new IllegalArgumentException(
-                "Fee must be a non-negative number.");
+        if (!Double.isFinite(d.getConsultationFee()) || d.getConsultationFee() < 0) {
+            throw new IllegalArgumentException("Fee must be a non-negative number.");
         }
 
         d.setFullName(d.getFullName().trim());
@@ -148,16 +145,14 @@ public class DoctorManager {
         d.setPhone(phone);
     }
 
-    private void bindDoctor(PreparedStatement ps, Doctor d)
-            throws SQLException {
+    private void bindDoctor(PreparedStatement ps, Doctor d) throws SQLException {
         ps.setString(1, d.getFullName());
         ps.setString(2, d.getSpecialization());
         ps.setString(3, d.getPhone());
         ps.setDouble(4, d.getConsultationFee());
     }
 
-    private Doctor readDoctor(ResultSet rs)
-            throws SQLException {
+    private Doctor readDoctor(ResultSet rs) throws SQLException {
         return new Doctor(
             rs.getInt("doctor_id"),
             rs.getString("full_name"),
