@@ -82,15 +82,15 @@ public class AuthManager {
         }
     }
 
-    /** Returns the role for a valid login, or null when credentials are invalid. */
-    public String authenticate(String username, char[] password)
+    /** Returns the authenticated account, or null for invalid credentials. */
+    public AppUser authenticate(String username, char[] password)
             throws SQLException, GeneralSecurityException {
         if (username == null || username.isBlank() || password == null
                 || password.length == 0) {
             return null;
         }
 
-        String sql = "SELECT password_hash, password_salt, role "
+        String sql = "SELECT user_id, username, password_hash, password_salt, role, doctor_id "
                 + "FROM app_users WHERE username = ? AND is_active = 'Y'";
         try (Connection con = database.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
@@ -101,10 +101,77 @@ public class AuthManager {
                 byte[] expected = Base64.getDecoder().decode(rs.getString("password_hash"));
                 byte[] actual = hashPassword(password, salt);
                 if (java.security.MessageDigest.isEqual(expected, actual)) {
-                    return rs.getString("role");
+                    int doctorIdValue = rs.getInt("doctor_id");
+                    Integer doctorId = rs.wasNull() ? null : doctorIdValue;
+                    String role = rs.getString("role");
+                    if ("DOCTOR".equals(role) && doctorId == null) {
+                        throw new SQLException("This doctor account is not linked to a doctor record. Ask an administrator to correct it.");
+                    }
+                    return new AppUser(rs.getInt("user_id"), rs.getString("username"), role, doctorId);
                 }
                 return null;
             }
+        }
+    }
+
+    public void createStaffUser(String username, char[] password, String role, Integer doctorId)
+            throws SQLException, GeneralSecurityException {
+        String cleanUsername = validateUsername(username);
+        validatePassword(password);
+        if (!"DOCTOR".equals(role) && !"RECEPTIONIST".equals(role)) {
+            throw new IllegalArgumentException("Choose DOCTOR or RECEPTIONIST for a staff account.");
+        }
+        if ("DOCTOR".equals(role) && (doctorId == null || doctorId <= 0)) {
+            throw new IllegalArgumentException("Select the doctor record linked to this account.");
+        }
+        if ("RECEPTIONIST".equals(role) && doctorId != null) {
+            throw new IllegalArgumentException("Receptionist accounts cannot be linked to a doctor record.");
+        }
+        byte[] salt = new byte[SALT_LENGTH_BYTES];
+        secureRandom.nextBytes(salt);
+        String hashText = Base64.getEncoder().encodeToString(hashPassword(password, salt));
+        String saltText = Base64.getEncoder().encodeToString(salt);
+        String sql = "INSERT INTO app_users (username, password_hash, password_salt, role, is_active, doctor_id) VALUES (?, ?, ?, ?, 'Y', ?)";
+        try (Connection con = database.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, cleanUsername); ps.setString(2, hashText); ps.setString(3, saltText); ps.setString(4, role);
+            if (doctorId == null) ps.setNull(5, java.sql.Types.NUMERIC); else ps.setInt(5, doctorId);
+            ps.executeUpdate();
+        }
+    }
+
+    public java.util.List<String[]> getUsers() throws SQLException {
+        java.util.List<String[]> users = new java.util.ArrayList<>();
+        String sql = "SELECT user_id, username, role, is_active, doctor_id FROM app_users ORDER BY user_id";
+        try (Connection con = database.getConnection(); PreparedStatement ps = con.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                int did = rs.getInt("doctor_id");
+                boolean doctorIdNull = rs.wasNull();
+                users.add(new String[]{String.valueOf(rs.getInt("user_id")), rs.getString("username"),
+                    rs.getString("role"), rs.getString("is_active"), doctorIdNull ? "" : String.valueOf(did)});
+            }
+        }
+        return users;
+    }
+
+    public boolean deactivateUser(int userId, String currentUsername) throws SQLException {
+        String checkSql = "SELECT username, role, is_active FROM app_users WHERE user_id = ?";
+        try (Connection con = database.getConnection(); PreparedStatement check = con.prepareStatement(checkSql)) {
+            check.setInt(1, userId);
+            try (ResultSet rs = check.executeQuery()) {
+                if (!rs.next()) return false;
+                if (rs.getString("username").equalsIgnoreCase(currentUsername)) {
+                    throw new IllegalArgumentException("You cannot deactivate your own account while logged in.");
+                }
+                if ("ADMIN".equals(rs.getString("role")) && "Y".equals(rs.getString("is_active"))) {
+                    try (PreparedStatement count = con.prepareStatement("SELECT COUNT(*) FROM app_users WHERE role='ADMIN' AND is_active='Y'"); ResultSet cr = count.executeQuery()) {
+                        cr.next();
+                        if (cr.getInt(1) <= 1) throw new IllegalArgumentException("The last active administrator cannot be deactivated.");
+                    }
+                }
+            }
+        }
+        try (Connection con = database.getConnection(); PreparedStatement ps = con.prepareStatement("UPDATE app_users SET is_active='N' WHERE user_id=? AND is_active='Y'")) {
+            ps.setInt(1, userId); return ps.executeUpdate() == 1;
         }
     }
 

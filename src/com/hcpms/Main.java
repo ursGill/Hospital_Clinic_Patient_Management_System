@@ -14,10 +14,10 @@ public class Main {
             AuthManager authManager = new AuthManager(database);
 
             SwingUtilities.invokeLater(() -> {
-                LoginFrame login = new LoginFrame(authManager, role -> {
+                LoginFrame login = new LoginFrame(authManager, user -> {
                     MainFrame frame = new MainFrame(
                             patientManager, doctorManager,
-                            appointmentManager, database);
+                            appointmentManager, database, authManager, user);
                     frame.setVisible(true);
                 });
                 login.setVisible(true);

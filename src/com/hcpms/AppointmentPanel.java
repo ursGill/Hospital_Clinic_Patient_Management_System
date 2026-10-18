@@ -19,6 +19,8 @@ public class AppointmentPanel extends JPanel {
     private final PatientManager patientManager;
     private final DoctorManager doctorManager;
     private final AppointmentManager appointmentManager;
+    private final Integer doctorIdFilter;
+    private final boolean readOnly;
 
     private final JComboBox<Choice> patientBox = new JComboBox<>();
     private final JComboBox<Choice> doctorBox = new JComboBox<>();
@@ -69,10 +71,21 @@ public class AppointmentPanel extends JPanel {
             PatientManager patientManager,
             DoctorManager doctorManager,
             AppointmentManager appointmentManager) {
+        this(patientManager, doctorManager, appointmentManager, null, false);
+    }
+
+    public AppointmentPanel(
+            PatientManager patientManager,
+            DoctorManager doctorManager,
+            AppointmentManager appointmentManager,
+            Integer doctorIdFilter,
+            boolean readOnly) {
 
         this.patientManager = patientManager;
         this.doctorManager = doctorManager;
         this.appointmentManager = appointmentManager;
+        this.doctorIdFilter = doctorIdFilter;
+        this.readOnly = readOnly;
 
         setLayout(new BorderLayout(16, 16));
         setBackground(UIStyle.BACKGROUND);
@@ -82,9 +95,19 @@ public class AppointmentPanel extends JPanel {
         add(createTablePanel(), BorderLayout.CENTER);
         add(createFooter(), BorderLayout.SOUTH);
 
+        if (readOnly) {
+            patientBox.setEnabled(false);
+            doctorBox.setEnabled(false);
+            dateTimeField.setEnabled(false);
+            statusBox.setEnabled(false);
+            setReadOnlyControls();
+        }
+
         filterBox.addActionListener(e -> applyFilter());
 
-        loadDropdowns();
+        if (!readOnly) {
+            loadDropdowns();
+        }
         loadAppointments();
     }
 
@@ -169,6 +192,22 @@ public class AppointmentPanel extends JPanel {
 
         outer.add(form, BorderLayout.CENTER);
         return outer;
+    }
+
+    private void setReadOnlyControls() {
+        // The appointment form buttons are contained in the NORTH component tree.
+        setControlsEnabled(this, false);
+        filterBox.setEnabled(true);
+        table.setEnabled(true);
+    }
+
+    private void setControlsEnabled(java.awt.Container parent, boolean enabled) {
+        for (java.awt.Component component : parent.getComponents()) {
+            if (component instanceof JButton button) {
+                button.setEnabled(enabled || "Refresh".equals(button.getText()));
+            }
+            if (component instanceof java.awt.Container container) setControlsEnabled(container, enabled);
+        }
     }
 
     private void addField(
@@ -440,7 +479,7 @@ public class AppointmentPanel extends JPanel {
     }
 
     private void refreshData() {
-        loadDropdowns();
+        if (!readOnly) loadDropdowns();
         loadAppointments();
         messageLabel.setText("Appointment data refreshed.");
     }
@@ -462,6 +501,9 @@ public class AppointmentPanel extends JPanel {
         int visibleCount = 0;
 
         for (Appointment a : allAppointments) {
+            if (doctorIdFilter != null && a.getDoctorId() != doctorIdFilter.intValue()) {
+                continue;
+            }
             LocalDateTime appointmentTime =
                     a.getAppointmentTime().toLocalDateTime();
 

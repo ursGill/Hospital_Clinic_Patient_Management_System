@@ -19,6 +19,8 @@ public class MainFrame extends JFrame {
     private final AppointmentManager appointmentManager;
 
     private final DatabaseConnection database;
+    private final AuthManager authManager;
+    private final AppUser currentUser;
 
     // Patient form
 
@@ -102,19 +104,26 @@ public class MainFrame extends JFrame {
 
     private final JTable dTable = new JTable(dModel);
 
+    /** Compatibility constructor; normal application startup should pass the authenticated user. */
+    public MainFrame(PatientManager patientManager, DoctorManager doctorManager,
+                     AppointmentManager appointmentManager, DatabaseConnection database) {
+        this(patientManager, doctorManager, appointmentManager, database, null,
+                new AppUser(-1, "local-admin", "ADMIN", null));
+    }
+
     public MainFrame(PatientManager patientManager,
-
-                     DoctorManager doctorManager, AppointmentManager appointmentManager,
-
-                    DatabaseConnection database) {
+                     DoctorManager doctorManager,
+                     AppointmentManager appointmentManager,
+                     DatabaseConnection database,
+                     AuthManager authManager,
+                     AppUser currentUser) {
 
         this.patientManager = patientManager;
-
         this.doctorManager = doctorManager;
-
         this.appointmentManager = appointmentManager;
-
         this.database = database;
+        this.authManager = authManager;
+        this.currentUser = currentUser;
 
         setTitle("Hospital & Clinic Patient Management System");
 
@@ -142,30 +151,29 @@ public class MainFrame extends JFrame {
 
 );
 
-        tabs.addTab("Patients", createPatientPanel());
+        if (currentUser.isAdmin() || currentUser.isReceptionist()) {
+            tabs.addTab("Patients", createPatientPanel());
+            tabs.addTab("Doctors", createDoctorPanel());
+        }
 
-        tabs.addTab("Doctors", createDoctorPanel());
+        tabs.addTab("Appointments", new AppointmentPanel(
+                patientManager, doctorManager, appointmentManager,
+                currentUser.isDoctor() ? currentUser.getDoctorId() : null,
+                currentUser.isDoctor()));
 
-        tabs.addTab("Appointments",
-
-        new AppointmentPanel(
-
-                patientManager,
-
-                doctorManager,
-
-                appointmentManager
-
-        ));
+        if (currentUser.isAdmin() && authManager != null) {
+            tabs.addTab("User Accounts", new UserManagementPanel(authManager, doctorManager, currentUser.getUsername()));
+        }
 
         add(tabs);
 
         UIStyle.styleTree(this);
         applyModuleStyling();
 
-        loadPatients();
-
-        loadDoctors();
+        if (!currentUser.isDoctor()) {
+            loadPatients();
+            loadDoctors();
+        }
 
     }
 
@@ -487,10 +495,11 @@ public class MainFrame extends JFrame {
         JButton add = new JButton("Add Doctor");
 
         add.addActionListener(e -> addDoctor());
+        add.setEnabled(currentUser == null || currentUser.isAdmin());
 
         JButton update = new JButton("Update Selected");
-
         update.addActionListener(e -> updateDoctor());
+        update.setEnabled(currentUser == null || currentUser.isAdmin());
 
         JButton clear = new JButton("Clear");
 
@@ -499,6 +508,7 @@ public class MainFrame extends JFrame {
         dDeleteButton = new JButton("Delete Selected");
         dDeleteButton.setToolTipText("Delete the selected doctor if no appointments reference them");
         dDeleteButton.addActionListener(e -> deleteDoctor());
+        dDeleteButton.setEnabled(currentUser == null || currentUser.isAdmin());
 
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT));
 

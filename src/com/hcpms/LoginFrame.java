@@ -24,7 +24,7 @@ import javax.swing.border.EmptyBorder;
 /** Login window; offers first-run administrator setup if no accounts exist. */
 public class LoginFrame extends JFrame {
     private final AuthManager authManager;
-    private final Consumer<String> onAuthenticated;
+    private final Consumer<AppUser> onAuthenticated;
     private final JTextField usernameField = new JTextField(20);
     private final JPasswordField passwordField = new JPasswordField(20);
     private final JLabel heading = new JLabel("Welcome back", SwingConstants.CENTER);
@@ -33,7 +33,7 @@ public class LoginFrame extends JFrame {
     private final JButton submitButton = new JButton("Sign In");
     private boolean firstRun;
 
-    public LoginFrame(AuthManager authManager, Consumer<String> onAuthenticated) {
+    public LoginFrame(AuthManager authManager, Consumer<AppUser> onAuthenticated) {
         this.authManager = authManager;
         this.onAuthenticated = onAuthenticated;
 
@@ -135,15 +135,15 @@ public class LoginFrame extends JFrame {
             if (firstRun) {
                 authManager.createInitialAdmin(username, password);
                 showMessage("Administrator account created. Opening HCPMS...", true);
-                onAuthenticated.accept("ADMIN");
+                onAuthenticated.accept(new AppUser(-1, username, "ADMIN", null));
                 dispose();
             } else {
-                String role = authManager.authenticate(username, password);
-                if (role == null) {
+                AppUser user = authManager.authenticate(username, password);
+                if (user == null) {
                     passwordField.setText("");
                     showMessage("Invalid username or password, or account is disabled.", false);
                 } else {
-                    onAuthenticated.accept(role);
+                    onAuthenticated.accept(user);
                     dispose();
                 }
             }

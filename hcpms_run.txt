@@ -1,10 +1,23 @@
 hcpms_user :- 
 
 
+
+run : 
+
+
+java -cp "out;lib\ojdbc17.jar" com.hcpms.Main
+
+
+
+
+
 sqlplus hcpms_user@localhost:1521/XEPDB1
 321
 
+GOPI
 admin@4444  (salted PBKDF2 hashes )
+
+password12
 
 
 @"C:\Users\gopis\Desktop\Projects\Hospital_Clinic_Patient_Management_System\database\doctors.sql"
