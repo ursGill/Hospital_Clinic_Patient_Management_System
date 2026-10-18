@@ -55,14 +55,18 @@ public class UserManagementPanel extends JPanel {
         form.add(new JLabel("Linked doctor (required for DOCTOR)")); form.add(doctorBox);
 
         JButton createButton = new JButton("Create Account");
+        JButton activateButton = new JButton("Activate Selected");
         JButton deactivateButton = new JButton("Deactivate Selected");
         JButton refreshButton = new JButton("Refresh Accounts");
         UIStyle.styleButton(createButton, UIStyle.BLUE);
+        UIStyle.styleButton(activateButton, new Color(22, 163, 74));
         UIStyle.styleButton(deactivateButton, UIStyle.RED);
         UIStyle.styleButton(refreshButton, UIStyle.NAVY);
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
         actions.setOpaque(false);
-        actions.add(createButton); actions.add(deactivateButton); actions.add(refreshButton);
+        actions.add(createButton); 
+        actions.add(activateButton);
+        actions.add(deactivateButton); actions.add(refreshButton);
         JPanel top = new JPanel(new BorderLayout(8, 8));
         top.setOpaque(false); top.add(form, BorderLayout.CENTER); top.add(actions, BorderLayout.SOUTH);
         add(top, BorderLayout.NORTH);
@@ -76,6 +80,7 @@ public class UserManagementPanel extends JPanel {
 
         roleBox.addActionListener(e -> updateDoctorChoiceState());
         createButton.addActionListener(e -> createAccount());
+        activateButton.addActionListener(e -> activateSelected());
         deactivateButton.addActionListener(e -> deactivateSelected());
         refreshButton.addActionListener(e -> refresh());
         refresh();
@@ -131,6 +136,56 @@ public class UserManagementPanel extends JPanel {
             passwordField.setText("");
         }
     }
+
+    
+private void activateSelected() {
+    int row = table.getSelectedRow();
+
+    if (row < 0) {
+        showError("Select an account first.");
+        return;
+    }
+
+    int modelRow = table.convertRowIndexToModel(row);
+    int id = Integer.parseInt(
+            model.getValueAt(modelRow, 0).toString());
+    String username = model.getValueAt(modelRow, 1).toString();
+    String active = model.getValueAt(modelRow, 3).toString();
+
+    if ("Y".equals(active)) {
+        showError("This account is already active.");
+        return;
+    }
+
+    int answer = JOptionPane.showConfirmDialog(
+            this,
+            "Activate account '" + username
+                    + "'? The user will be able to sign in again "
+                    + "using their existing password.",
+            "Confirm Activation",
+            JOptionPane.YES_NO_OPTION,
+            JOptionPane.QUESTION_MESSAGE
+    );
+
+    if (answer != JOptionPane.YES_OPTION) {
+        return;
+    }
+
+    try {
+        if (authManager.activateUser(id)) {
+            message.setForeground(UIStyle.MUTED);
+            message.setText("Account activated: " + username);
+            refresh();
+        } else {
+            showError("Account was not activated. "
+                    + "It may already be active or no longer exist.");
+            refresh();
+        }
+    } catch (SQLException ex) {
+        showError("Could not activate account. " + ex.getMessage());
+    }
+}
+
 
     private void deactivateSelected() {
         int row = table.getSelectedRow();

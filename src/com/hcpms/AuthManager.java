@@ -175,6 +175,21 @@ public class AuthManager {
         }
     }
 
+    
+public boolean activateUser(int userId) throws SQLException {
+    String sql = "UPDATE app_users "
+            + "SET is_active = 'Y' "
+            + "WHERE user_id = ? AND is_active = 'N'";
+
+    try (Connection con = database.getConnection();
+         PreparedStatement ps = con.prepareStatement(sql)) {
+
+        ps.setInt(1, userId);
+        return ps.executeUpdate() == 1;
+    }
+}
+
+
     private static String validateUsername(String username) {
         if (username == null) throw new IllegalArgumentException("Username is required.");
         String value = username.trim();
